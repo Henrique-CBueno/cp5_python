@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     smtp_port: int = 1025
     public_url: str = "http://localhost:8000"
     cookie_secure: bool = False
-    admin_email: str = "admin@vigilia.local"
+    admin_email: str = "admin@example.org"
     admin_password: str = ""
     nvd_api_key: str = ""
 

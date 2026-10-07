@@ -8,6 +8,7 @@ import secrets
 from app.presentation.routes import router
 from app.presentation.auth import router as auth_router
 from app.presentation.admin import router as admin_router
+from app.presentation.alerts import router as alerts_router
 from app.infrastructure.cognito import CognitoIdentity
 from app.settings import Settings, connect
 
@@ -29,6 +30,7 @@ def create_app(repository=None, identity=None):
     app.include_router(router)
     app.include_router(auth_router)
     app.include_router(admin_router)
+    app.include_router(alerts_router)
 
     @app.middleware("http")
     async def csrf_protection(request: Request, call_next):

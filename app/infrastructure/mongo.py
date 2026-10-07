@@ -3,7 +3,7 @@ import json
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from pymongo import ASCENDING
+from pymongo import ASCENDING, ReturnDocument
 
 from app.domain.vulnerability import Vulnerability
 
@@ -20,6 +20,68 @@ class MongoRepository:
 
         self.db.sessions.create_index("expires_at", expireAfterSeconds=0)
         self.db.subscriptions.create_index("owner")
+        self.db.subscriptions.create_index("id", unique=True)
+        self.db.outbox.create_index("id", unique=True)
+        self.db.outbox.create_index([("status", 1), ("next_attempt", 1)])
+        self.db.runs.create_index("id", unique=True)
+        now = datetime.now(timezone.utc)
+        self.db.settings.update_one({"_id": "schedule"}, {"$setOnInsert": {"enabled": True, "interval_hours": 12, "max_pages": 0, "next_run_at": now, "baseline_completed": False}}, upsert=True)
+        self.db.settings.update_one({"_id": "collector"}, {"$setOnInsert": {"lease_until": now, "run_id": None}}, upsert=True)
+
+    def schedule(self):
+        return self.db.settings.find_one({"_id": "schedule"}, {"_id": 0})
+
+    def configure_schedule(self, data, now):
+        self.db.settings.update_one({"_id": "schedule"}, {"$set": data | {"next_run_at": now + timedelta(hours=data["interval_hours"])}})
+        return self.schedule()
+
+    def enqueue_run(self, requested_by, max_pages=None):
+        config = self.schedule()
+        if self.db.runs.count_documents({"status": "queued"}) >= 5:
+            raise ValueError("Já há cinco execuções aguardando; espere a conclusão")
+        job = {"id": uuid.uuid4().hex, "requested_by": requested_by, "max_pages": config["max_pages"] if max_pages is None else max_pages, "created_at": datetime.now(timezone.utc), "status": "queued", "progress": {"pages": 0, "new": 0, "changed": 0, "unchanged": 0}}
+        self.db.runs.insert_one(job.copy())
+        return job
+
+    def reserve_run(self, now):
+        claim = uuid.uuid4().hex
+        lock = self.db.settings.find_one_and_update({"_id": "collector", "lease_until": {"$lte": now}}, {"$set": {"claim": claim, "run_id": None, "lease_until": now + timedelta(minutes=15)}}, return_document=ReturnDocument.BEFORE)
+        if not lock:
+            return None
+        if lock.get("run_id"):
+            self.db.runs.update_one({"id": lock["run_id"], "status": "running"}, {"$set": {"status": "failed", "error": "Worker interrompido; reserva expirada", "finished_at": now}})
+            self.db.outbox.update_many({"run_id": lock["run_id"]}, {"$set": {"ready": True}})
+        config = self.schedule()
+        if not self.db.runs.count_documents({"status": "queued"}) and config["enabled"] and config["next_run_at"] <= now:
+            self.enqueue_run("schedule")
+            self.db.settings.update_one({"_id": "schedule"}, {"$set": {"next_run_at": now + timedelta(hours=config["interval_hours"])}})
+        job = self.db.runs.find_one_and_update({"status": "queued"}, {"$set": {"status": "running", "started_at": now, "baseline": not config["baseline_completed"]}}, sort=[("created_at", 1)], return_document=ReturnDocument.AFTER, projection={"_id": 0})
+        self.db.settings.update_one({"_id": "collector", "claim": claim}, {"$set": {"run_id": job["id"] if job else None, **({"lease_until": now} if not job else {})}})
+        return job
+
+    def progress_run(self, run_id, progress, now):
+        lock = self.db.settings.update_one({"_id": "collector", "run_id": run_id, "lease_until": {"$gt": now}}, {"$set": {"lease_until": now + timedelta(minutes=15)}})
+        if not lock.matched_count:
+            raise ValueError("Reserva de execução expirada")
+        self.db.runs.update_one({"id": run_id, "status": "running"}, {"$set": {"progress": progress}})
+
+    def finish_run(self, run_id, progress, now, error=None, warning=None):
+        with self.db.client.start_session() as session:
+            def transaction(s):
+                lock = self.db.settings.find_one({"_id": "collector", "run_id": run_id, "lease_until": {"$gt": now}}, session=s)
+                if not lock:
+                    return False
+                job = self.db.runs.find_one({"id": run_id}, session=s)
+                self.db.runs.update_one({"id": run_id}, {"$set": {"status": "failed" if error else "completed", "progress": progress, "finished_at": now, "error": error, "warning": warning}}, session=s)
+                self.db.outbox.update_many({"run_id": run_id}, {"$set": {"ready": True}}, session=s)
+                if not error and job["baseline"] and job["max_pages"] == 0:
+                    self.db.settings.update_one({"_id": "schedule"}, {"$set": {"baseline_completed": True}}, session=s)
+                self.db.settings.update_one({"_id": "collector"}, {"$set": {"run_id": None, "lease_until": now}}, session=s)
+                return True
+            return session.with_transaction(transaction)
+
+    def runs(self):
+        return list(self.db.runs.find({}, {"_id": 0}).sort("created_at", -1).limit(50))
 
     def identity_config(self):
         return self.db.settings.find_one({"_id": "identity"}, {"_id": 0})
@@ -54,7 +116,37 @@ class MongoRepository:
     def delete_subscription(self, owner, subscription_id):
         return self.db.subscriptions.delete_one({"id": subscription_id, "owner": owner}).deleted_count == 1
 
-    def save(self, record: Vulnerability, now, baseline=False):
+    def alerts(self, owner=None):
+        return list(self.db.outbox.find({"owner": owner} if owner else {}, {"_id": 0}).sort([("created_at", -1), ("id", 1)]).limit(100))
+
+    def reserve_delivery(self, now):
+        return self.db.outbox.find_one_and_update({"ready": True, "$or": [{"status": "pending", "next_attempt": {"$lte": now}}, {"status": "sending", "lease_until": {"$lte": now}}]}, {"$set": {"status": "sending", "claim": uuid.uuid4().hex, "lease_until": now + timedelta(minutes=2)}, "$inc": {"attempts": 1}}, sort=[("created_at", 1)], return_document=ReturnDocument.AFTER, projection={"_id": 0})
+
+    def delivery_counts(self):
+        return {r["_id"]: r["count"] for r in self.db.outbox.aggregate([{"$group": {"_id": "$status", "count": {"$sum": 1}}}])}
+
+    def retry_delivery(self, delivery_id):
+        return self.db.outbox.update_one({"id": delivery_id, "status": "failed"}, {"$set": {"status": "pending", "attempts": 0, "next_attempt": datetime.now(timezone.utc)}}).modified_count == 1
+
+    def queue_test(self, owner, subscription_id):
+        subscription = self.db.subscriptions.find_one({"id": subscription_id, "owner": owner, "enabled": True})
+        if not subscription:
+            return False
+        now = datetime.now(timezone.utc)
+        record = self.db.vulnerabilities.find_one({"product_key": {"$in": subscription["products"]}, "simulated": False})
+        if not record:
+            return False
+        self.db.outbox.insert_one({"id": uuid.uuid4().hex, "owner": owner, "subscription_id": subscription_id, "name": subscription["name"], "email": subscription["email"], "run_id": None, "created_at": now, "status": "pending", "ready": True, "attempts": 0, "next_attempt": now, "items": [{"cve_id": record["cve_id"], "event": "new", "vendor": record["vendor"], "product": record["product"], "title": "DEMONSTRAÇÃO — teste de entrega SMTP", "action": "Nenhuma ação: teste de envio.", "simulated": True}]})
+        return True
+
+    def subscription_active(self, delivery):
+        return bool(self.db.subscriptions.find_one({"id": delivery["subscription_id"], "owner": delivery["owner"], "enabled": True}))
+
+    def finish_delivery(self, delivery, now, error=None, cancelled=False):
+        state = "cancelled" if cancelled else ("failed" if error and delivery["attempts"] >= 5 else "pending" if error else "sent")
+        self.db.outbox.update_one({"id": delivery["id"], "claim": delivery["claim"], "status": "sending"}, {"$set": {"status": state, "error": error, "next_attempt": now + timedelta(seconds=60 * delivery["attempts"]), "finished_at": now}})
+
+    def save(self, record: Vulnerability, now, baseline=False, run_id=None):
         snapshot = record.snapshot()
         # A URL de paginação pode mudar sem que a vulnerabilidade mude.
         fingerprint = hashlib.sha256(
@@ -66,21 +158,30 @@ class MongoRepository:
         with self.db.client.start_session() as session:
 
             def transaction(s):
+                if run_id and not self.db.settings.find_one({"_id": "collector", "run_id": run_id, "lease_until": {"$gt": now}}, session=s):
+                    raise ValueError("Reserva de execução expirada")
                 existing = self.db.vulnerabilities.find_one({"cve_id": record.cve_id}, session=s)
                 state = (
                     "new"
                     if not existing
                     else ("unchanged" if existing["fingerprint"] == fingerprint else "changed")
                 )
+                revision = (existing.get("revision", 1) if existing else 0) + (state != "unchanged")
                 self.db.vulnerabilities.update_one(
                     {"cve_id": record.cve_id},
                     {
-                        "$set": snapshot | {"fingerprint": fingerprint, "last_collected_at": now},
+                        "$set": snapshot | {"fingerprint": fingerprint, "last_collected_at": now, "revision": revision},
                         "$setOnInsert": {"first_collected_at": now, "nvd_status": "pending"},
                     },
                     upsert=True,
                     session=s,
                 )
+                if state != "unchanged" and not baseline:
+                    recipients = self.db.subscriptions.find({"enabled": True, "products": record.product_key, **({"changes": True} if state == "changed" else {})}, session=s)
+                    for subscription in recipients:
+                        delivery_id = f"{subscription['id']}:{run_id or record.cve_id + ':' + str(revision)}"
+                        event = {"cve_id": record.cve_id, "revision": revision, "event": state, "vendor": record.vendor, "product": record.product, "title": record.title, "action": record.action, "simulated": record.simulated}
+                        self.db.outbox.update_one({"id": delivery_id}, {"$setOnInsert": {"id": delivery_id, "owner": subscription["owner"], "subscription_id": subscription["id"], "name": subscription["name"], "email": subscription["email"], "run_id": run_id, "created_at": now, "status": "pending", "ready": not bool(run_id), "attempts": 0, "next_attempt": now}, "$addToSet": {"items": event}}, upsert=True, session=s)
                 return state
 
             return session.with_transaction(transaction)

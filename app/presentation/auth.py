@@ -25,6 +25,8 @@ class Confirmation(BaseModel):
 
 def identity(request: Request):
     adapter = request.app.state.identity
+    if adapter and not adapter.config:
+        adapter.config = request.app.state.repository.identity_config()
     if not adapter or not adapter.config:
         raise HTTPException(503, "Identidade não provisionada; execute o bootstrap")
     return adapter

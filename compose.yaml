@@ -1,4 +1,33 @@
 services:
+  web:
+    build: .
+    environment: &app-environment
+      MONGO_URI: mongodb://mongo:27017/?replicaSet=rs0
+      COGNITO_ENDPOINT: http://cognito:9229
+      COGNITO_ISSUER: http://0.0.0.0:9229
+      SMTP_HOST: mailpit
+      PUBLIC_URL: http://localhost:8000
+      NVD_API_KEY: ${NVD_API_KEY:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.org}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on:
+      mongo: {condition: service_healthy}
+      cognito: {condition: service_started}
+      mailpit: {condition: service_started}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  worker:
+    build: .
+    command: ["python", "-m", "app.cli", "worker"]
+    environment: *app-environment
+    depends_on:
+      mongo: {condition: service_healthy}
+      cognito: {condition: service_started}
+      mailpit: {condition: service_started}
   mongo:
     image: mongo:7.0
     command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
