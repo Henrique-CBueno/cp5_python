@@ -1,5 +1,6 @@
 import hashlib
 import json
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from pymongo import ASCENDING
@@ -16,6 +17,42 @@ class MongoRepository:
         self.db.vulnerabilities.create_index(
             [("product_key", ASCENDING), ("date_added", ASCENDING)]
         )
+
+        self.db.sessions.create_index("expires_at", expireAfterSeconds=0)
+        self.db.subscriptions.create_index("owner")
+
+    def identity_config(self):
+        return self.db.settings.find_one({"_id": "identity"}, {"_id": 0})
+
+    def configure_identity(self, config):
+        self.db.settings.update_one({"_id": "identity"}, {"$set": config}, upsert=True)
+
+    def save_session(self, session_id, token, expires, csrf):
+        self.db.sessions.insert_one({"_id": session_id, "token": token, "expires_at": expires, "csrf": csrf})
+
+    def session(self, session_id):
+        return self.db.sessions.find_one({"_id": session_id, "expires_at": {"$gt": datetime.now(timezone.utc)}})
+
+    def delete_session(self, session_id):
+        self.db.sessions.delete_one({"_id": session_id})
+
+    def save_subscription(self, owner, data, subscription_id=None):
+        now = datetime.now(timezone.utc)
+        if subscription_id:
+            existing = self.db.subscriptions.find_one({"id": subscription_id, "owner": owner})
+            if not existing:
+                return None
+            self.db.subscriptions.update_one({"id": subscription_id, "owner": owner}, {"$set": data | {"updated_at": now}})
+        else:
+            subscription_id = uuid.uuid4().hex
+            self.db.subscriptions.insert_one(data | {"id": subscription_id, "owner": owner, "created_at": now, "updated_at": now})
+        return self.db.subscriptions.find_one({"id": subscription_id, "owner": owner}, {"_id": 0})
+
+    def subscriptions(self, owner):
+        return list(self.db.subscriptions.find({"owner": owner}, {"_id": 0}).sort("created_at", -1))
+
+    def delete_subscription(self, owner, subscription_id):
+        return self.db.subscriptions.delete_one({"id": subscription_id, "owner": owner}).deleted_count == 1
 
     def save(self, record: Vulnerability, now, baseline=False):
         snapshot = record.snapshot()

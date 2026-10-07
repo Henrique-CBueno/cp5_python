@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     mongo_uri: str = "mongodb://localhost:27018/?replicaSet=rs0&directConnection=true"
     mongo_database: str = "vigilia"
     cognito_endpoint: str = "http://localhost:9229"
-    cognito_issuer: str = "http://localhost:9229"
+    cognito_issuer: str = "http://0.0.0.0:9229"
     smtp_host: str = "localhost"
     smtp_port: int = 1025
     public_url: str = "http://localhost:8000"
