@@ -56,3 +56,23 @@ def test_admin_can_schedule_run_and_demonstrate_alert_without_polluting_catalog(
         assert api.get("/api/vulnerabilities/" + response.json()["cve_id"]).status_code == 404
         assert api.post(f"/api/subscriptions/{sub['id']}/test").status_code == 202
         assert len(api.get("/api/admin/deliveries").json()) == 2
+        assert api.post("/api/admin/reset", json={"confirmation": "wrong"}).status_code == 422
+        assert api.get("/api/statistics").json()["total"] == 1
+        job = repository.reserve_run(datetime.now(timezone.utc))
+        assert api.post("/api/admin/reset", json={"confirmation": "ZERAR"}).status_code == 409
+        repository.finish_run(job["id"], {}, datetime.now(timezone.utc))
+        assert (
+            api.post(
+                "/api/admin/reset", json={"confirmation": "ZERAR"}, headers={"X-CSRF-Token": ""}
+            ).status_code
+            == 403
+        )
+        reset = api.post("/api/admin/reset", json={"confirmation": "ZERAR"})
+        assert reset.status_code == 200
+        assert reset.json() == {"vulnerabilities": 2, "runs": 1, "deliveries": 2}
+        assert api.get("/api/statistics").json()["total"] == 0
+        assert api.get("/api/admin/runs").json() == []
+        assert api.get("/api/alerts").json() == []
+        assert api.get("/api/subscriptions").json()[0]["id"] == sub["id"]
+        assert api.get("/api/session").json()["user"]["admin"]
+        assert api.get("/api/admin/status").json()["schedule"]["interval_hours"] == 6

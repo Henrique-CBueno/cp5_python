@@ -71,6 +71,7 @@ Todos os caminhos abaixo exigem sessão com grupo `admin`:
 | `GET /api/admin/deliveries` | Até 100 entregas recentes. |
 | `POST /api/admin/deliveries/{id}/retry` | Reabre uma entrega em `failed`; 202. |
 | `POST /api/admin/simulate` | `product_key`; cria evento sintético identificado; 201. |
+| `POST /api/admin/reset` | `{"confirmation":"ZERAR"}`; remove catálogo, execuções e histórico de entregas, preservando contas/assinaturas/configuração. 409 durante coleta ou envio ativo. |
 
 ## Cookies e CSRF
 

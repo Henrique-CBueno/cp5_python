@@ -55,6 +55,14 @@ Recoletas fazem upsert pelo CVE: preservam a primeira coleta, atualizam a últim
 
 HTTP 403/429 encerra a coleta; falhas transitórias têm tentativas limitadas. Uma falha preserva registros já confirmados. Falha da NVD mantém a evidência anterior e permite novo enriquecimento na execução seguinte.
 
+## Zerar os dados operacionais
+
+Em **Administração → Limpeza de dados**, digite **ZERAR** e clique **Zerar dados operacionais**.
+
+A ação remove CVEs/enriquecimentos, execuções (incluindo as que estão na fila) e histórico de entregas da aplicação. Contas, sessões, assinaturas e configuração da programação são preservadas. A limpeza é transacional e recusada se houver coleta ou envio ativo.
+
+A próxima execução programada é recalculada conforme o intervalo configurado; a próxima coleta completa estabelece uma nova base sem alertas retroativos. Para preencher a base imediatamente, solicite uma execução manual com limite **0**. Mensagens já capturadas no Mailpit são gerenciadas na própria caixa.
+
 ## Conceitos e interpretação
 
 | Termo | Significado |

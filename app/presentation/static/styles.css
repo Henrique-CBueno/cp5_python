@@ -1108,6 +1108,22 @@ td {
 .admin-history {
   margin-top: 28px;
 }
+.reset-panel {
+  margin-top: 28px;
+}
+.reset-panel form {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.reset-panel form > div {
+  width: 210px;
+  max-width: 100%;
+}
+.reset-panel .field-hint {
+  margin-bottom: 0;
+}
 .admin-history .table-scroll {
   margin-top: 14px;
 }

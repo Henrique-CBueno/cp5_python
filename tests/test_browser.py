@@ -272,3 +272,50 @@ def test_expired_private_session_returns_to_login_instead_of_repeating_poll_erro
         page.get_by_role("button", name="Atualizar estado", exact=True).click()
         expect(page).to_have_url(re.compile(r"/entrar\?next=%2Fadmin$"))
         browser.close()
+
+
+@pytest.mark.browser
+def test_admin_reset_requires_confirmation_and_refreshes_the_view_without_touching_live_data():
+    from playwright.sync_api import expect, sync_playwright
+    from app.settings import Settings
+
+    settings = Settings()
+    base = os.getenv("BROWSER_BASE_URL", "http://localhost:8000")
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        page.goto(base + "/entrar?next=/admin")
+        page.get_by_label("E-mail da conta").fill(settings.admin_email)
+        page.get_by_label("Senha", exact=True).fill(settings.admin_password)
+        page.get_by_role("button", name="Entrar", exact=True).click()
+        expect(page.get_by_role("button", name="Atualizar estado", exact=True)).to_be_enabled()
+        original_total = page.request.get(base + "/api/statistics").json()["total"]
+        status = page.request.get(base + "/api/admin/status").json()
+        submitted = []
+
+        def reset_response(route):
+            submitted.append(route.request.post_data_json)
+            cleared = status | {
+                "records": 0,
+                "runs": [],
+                "deliveries": {},
+                "schedule": status["schedule"] | {"baseline_completed": False},
+            }
+            page.route("**/api/admin/status", lambda r: r.fulfill(json=cleared))
+            for endpoint in ("/api/admin/runs", "/api/admin/deliveries", "/api/products"):
+                page.route("**" + endpoint, lambda r: r.fulfill(json=[]))
+            route.fulfill(json={"vulnerabilities": original_total, "runs": 1, "deliveries": 1})
+
+        page.route("**/api/admin/reset", reset_response)
+        confirmation = page.get_by_label("Digite ZERAR para confirmar", exact=True)
+        confirmation.fill("APAGA")
+        page.get_by_role("button", name="Zerar dados operacionais", exact=True).click()
+        assert submitted == []
+        confirmation.fill("ZERAR")
+        page.get_by_role("button", name="Zerar dados operacionais", exact=True).click()
+        expect(page.get_by_text("Dados operacionais zerados.", exact=False)).to_be_visible()
+        expect(page.locator("#admin-summary .metric strong").first).to_have_text("0")
+        expect(page.locator("#simulate-product option")).to_have_count(1)
+        assert submitted == [{"confirmation": "ZERAR"}]
+        assert page.request.get(base + "/api/statistics").json()["total"] == original_total
+        browser.close()

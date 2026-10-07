@@ -95,6 +95,7 @@ def test_alerts_require_login_and_subscriptions_are_owned(repository, vulnerabil
             == 422
         )
         assert alice.get("/api/admin/status").status_code == 403
+        assert alice.post("/api/admin/reset", json={"confirmation": "ZERAR"}).status_code == 403
         assert alice.get("/admin").status_code == 403
         assert alice.get("/alertas").status_code == 200
         assert alice.delete(f"/api/subscriptions/{subscription['id']}").status_code == 204

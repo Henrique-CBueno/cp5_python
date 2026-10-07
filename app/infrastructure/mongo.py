@@ -46,6 +46,57 @@ class MongoRepository:
     def schedule(self):
         return self.db.settings.find_one({"_id": "schedule"}, {"_id": 0})
 
+    def reset_operational_data(self, now):
+        with self.db.client.start_session() as session:
+
+            def transaction(s):
+                lock = self.db.settings.update_one(
+                    {"_id": "collector", "lease_until": {"$lte": now}},
+                    {
+                        "$set": {
+                            "run_id": None,
+                            "claim": uuid.uuid4().hex,
+                            "lease_until": now + timedelta(minutes=1),
+                        }
+                    },
+                    session=s,
+                )
+                if not lock.matched_count:
+                    raise ValueError(
+                        "Há uma coleta em andamento. Aguarde sua conclusão antes de zerar os dados."
+                    )
+                if self.db.outbox.find_one(
+                    {"status": "sending", "lease_until": {"$gt": now}}, session=s
+                ):
+                    raise ValueError(
+                        "Há um envio de e-mail em andamento. Aguarde sua conclusão antes de zerar os dados."
+                    )
+                counts = {
+                    name: self.db[name].delete_many({}, session=s).deleted_count
+                    for name in ("vulnerabilities", "runs", "outbox")
+                }
+                schedule = self.db.settings.find_one({"_id": "schedule"}, session=s)
+                self.db.settings.update_one(
+                    {"_id": "schedule"},
+                    {
+                        "$set": {
+                            "baseline_completed": False,
+                            "next_run_at": now + timedelta(hours=schedule["interval_hours"]),
+                        }
+                    },
+                    session=s,
+                )
+                self.db.settings.update_one(
+                    {"_id": "collector"}, {"$set": {"run_id": None, "lease_until": now}}, session=s
+                )
+                return {
+                    "vulnerabilities": counts["vulnerabilities"],
+                    "runs": counts["runs"],
+                    "deliveries": counts["outbox"],
+                }
+
+            return session.with_transaction(transaction)
+
     def configure_schedule(self, data, now):
         self.db.settings.update_one(
             {"_id": "schedule"},

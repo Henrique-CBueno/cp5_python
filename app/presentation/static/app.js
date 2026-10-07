@@ -614,17 +614,22 @@ async function alerts() {
 }
 
 async function admin() {
-  const products = await api("/api/products");
-  products.forEach((p) =>
-    $("#simulate-product").add(new Option(`${p.vendor} / ${p.product}`, p.key)),
-  );
   let initialized = false;
   async function refresh() {
-    const [status, runs, deliveries] = await Promise.all([
+    const [status, runs, deliveries, products] = await Promise.all([
       api("/api/admin/status"),
       api("/api/admin/runs"),
       api("/api/admin/deliveries"),
+      api("/api/products"),
     ]);
+    const selectedProduct = $("#simulate-product").value;
+    $("#simulate-product").replaceChildren(
+      new Option("Selecione um produto", ""),
+      ...products.map((p) => new Option(`${p.vendor} / ${p.product}`, p.key)),
+    );
+    $("#simulate-product").value = products.some((p) => p.key === selectedProduct)
+      ? selectedProduct
+      : "";
     $("#admin-summary").innerHTML = [
       [number(status.records), "Registros reais"],
       [status.schedule.baseline_completed ? "Pronta" : "Inicial", "Base de alertas"],
@@ -697,6 +702,20 @@ async function admin() {
     });
   });
   $("#refresh-admin").addEventListener("click", (event) => action(event.currentTarget, refresh));
+  $("#reset-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    action($("button", event.currentTarget), async () => {
+      const result = await api("/api/admin/reset", {
+        method: "POST",
+        body: JSON.stringify({ confirmation: $("#reset-confirmation").value }),
+      });
+      $("#reset-form").reset();
+      notify(
+        `Dados operacionais zerados. ${number(result.vulnerabilities)} CVEs, ${number(result.runs)} execuções e ${number(result.deliveries)} entregas removidos.`,
+      );
+      await refresh();
+    });
+  });
   $("#deliveries-table").addEventListener("click", (event) => {
     const button = event.target.closest("[data-retry]");
     if (button)

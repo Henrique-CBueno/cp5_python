@@ -96,3 +96,4 @@ O `_id` é SHA-256 do identificador aleatório do cookie. Guarda token Cognito, 
 5. **SMTP:** há persistência e novas tentativas, mas não garantia de exatamente uma entrega. Uma queda após aceitação SMTP e antes da confirmação pode duplicar o e-mail.
 6. **Histórico:** revisões identificam mudanças, mas não preservam todas as versões de todos os campos. Alertas mantêm os snapshots que originaram o envio.
 7. **Demonstração:** `simulated=true` é excluído de consultas públicas, produtos e estatísticas. Os eventos sintéticos aparecem nos históricos autorizados e no Mailpit.
+8. **Limpeza operacional:** reserva o coletor e verifica entregas ativas na mesma transação antes de apagar `vulnerabilities`, `runs` e `outbox`. Falha desfaz todas as exclusões. `subscriptions`, `sessions`, configuração de identidade e preferências de programação são preservadas; a base inicial é reiniciada e a próxima execução é recalculada pelo intervalo existente.
