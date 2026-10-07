@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Protocol
+from app.domain.repository import VulnerabilityRepository
 
 
 class EnrichmentSource(Protocol):
@@ -7,14 +8,14 @@ class EnrichmentSource(Protocol):
 
 
 class Enrich:
-    def __init__(self, source: EnrichmentSource, repository):
+    def __init__(self, source: EnrichmentSource, repository: VulnerabilityRepository):
         self.source, self.repository = source, repository
 
     def run(self):
         ids = self.repository.enrichment_ids()
         counts = {"enriched": 0, "missing": 0}
         for offset in range(0, len(ids), 100):
-            batch = ids[offset:offset+100]
+            batch = ids[offset : offset + 100]
             values = self.source.fetch(batch)
             for cve_id in batch:
                 value = values.get(cve_id)

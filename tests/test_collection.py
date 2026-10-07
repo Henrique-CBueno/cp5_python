@@ -123,3 +123,54 @@ def test_collection_use_case_reports_progress_and_recollection(repository, vulne
     assert result == {"pages": 1, "new": 1, "changed": 0, "unchanged": 0}
     assert progress[-1]["new"] == 1
     assert Collect(Source(), repository).run()["unchanged"] == 1
+
+
+def test_full_crawl_reconciles_repeated_items_using_the_official_export():
+    from app.infrastructure.cisa import CisaCrawler, EXPORT
+
+    def respond(request):
+        if str(request.url) == EXPORT:
+            return httpx.Response(
+                200,
+                json={
+                    "count": 2,
+                    "vulnerabilities": [
+                        {
+                            "cveID": "CVE-2020-1234",
+                            "vendorProject": "Apache",
+                            "product": "Log4j",
+                            "vulnerabilityName": "Other vulnerability",
+                            "shortDescription": "RCE",
+                            "requiredAction": "Upgrade",
+                            "dateAdded": "2021-12-10",
+                            "dueDate": "2021-12-24",
+                            "knownRansomwareCampaignUse": "Known",
+                            "notes": "https://example.org/advisory",
+                            "cwes": ["CWE-502"],
+                        }
+                    ],
+                },
+            )
+        return httpx.Response(200, text=HTML + "<p>Showing 1 - 1 of 2 results</p>")
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        pages = list(CisaCrawler(client, pause=0).pages())
+    assert {r.cve_id for _, records in pages for r in records} == {
+        "CVE-2021-44228",
+        "CVE-2020-1234",
+    }
+    assert len(pages) == 2
+    assert str(pages[1][1][0].source_url) == EXPORT
+
+
+def test_full_crawl_does_not_claim_completion_if_source_still_has_gaps():
+    from app.infrastructure.cisa import CisaCrawler, EXPORT
+
+    def respond(request):
+        if str(request.url) == EXPORT:
+            return httpx.Response(200, json={"count": 2, "vulnerabilities": []})
+        return httpx.Response(200, text=HTML + "<p>Showing 1 - 1 of 2 results</p>")
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        with pytest.raises(ValueError, match="incompleto"):
+            list(CisaCrawler(client, pause=0).pages())

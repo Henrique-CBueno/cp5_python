@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-heading"><div><h1>Investigar vulnerabilidades</h1><p>Encontre o que afeta seus produtos. Entenda a evidência. Saiba o próximo passo.</p></div><a href="/panorama" class="text-link">Explorar o panorama {{ icon('arrow') }}</a></div>
+{% include '_filters.html' %}
+<div id="metrics" class="metrics" aria-live="polite"><p class="muted">Carregando indicadores da base…</p></div>
+<div class="workbench">
+  <section class="results-panel" aria-labelledby="results-title"><div class="panel-heading"><h2 id="results-title">Catálogo de exploração conhecida</h2><span id="result-count" class="muted">Consultando…</span></div><p class="context-note">Todos os registros são do KEV. “Não confirmado” em ransomware não significa ausência de exploração.</p>
+  <div class="table-scroll"><table class="results-table"><thead><tr><th scope="col">Vulnerabilidade / produto</th><th scope="col">Severidade</th><th scope="col">Incluída no KEV</th><th scope="col"><span class="sr-only">Investigar</span></th></tr></thead><tbody id="results"><tr><td colspan="4" class="empty">Carregando vulnerabilidades…</td></tr></tbody></table></div>
+  <div class="pagination"><span id="page-label"></span><div><button id="prev-page" class="button subtle" type="button" disabled>Anterior</button><button id="next-page" class="button subtle" type="button" disabled>Próxima</button></div></div>
+  </section>
+  <aside id="inspection" class="inspection" aria-label="Inspeção da vulnerabilidade" aria-live="polite"><div class="empty"><h2>Sua investigação começa aqui</h2><p>Selecione uma vulnerabilidade para ver a evidência e a ação recomendada.</p></div></aside>
+</div>
+<section class="workbench-panorama" aria-labelledby="quick-panorama-title"><div class="section-heading"><h2 id="quick-panorama-title">Contexto da investigação</h2><span class="muted">Todo o conjunto filtrado, não apenas esta página</span></div><div class="chart-grid"><section class="chart-panel"><h3>Fornecedores mais presentes</h3><div class="chart-wrap"><canvas id="vendors-chart" role="img" aria-label="Vulnerabilidades por fornecedor"></canvas></div><details><summary>Ver dados do gráfico</summary><div id="vendors-data"></div></details></section><section class="chart-panel"><h3>Distribuição de severidade</h3><div class="chart-wrap"><canvas id="severity-chart" role="img" aria-label="Vulnerabilidades por severidade CVSS"></canvas></div><details><summary>Ver dados do gráfico</summary><div id="severity-data"></div></details></section></div></section>
+{% endblock %}

@@ -13,7 +13,9 @@ class Collect:
         for _, records in self.source.pages(max_pages):
             for record in records:
                 kwargs = {"run_id": run_id} if run_id else {}
-                state = self.repository.save(record, datetime.now(timezone.utc), baseline=baseline, **kwargs)
+                state = self.repository.save(
+                    record, datetime.now(timezone.utc), baseline=baseline, **kwargs
+                )
                 counts[state] += 1
             counts["pages"] += 1
             progress(counts.copy())

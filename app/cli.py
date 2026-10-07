@@ -36,7 +36,9 @@ def main(argv=None):
             password = settings.admin_password or secrets.token_urlsafe(18) + "Aa1!"
             exists = False
             try:
-                identity.client.admin_get_user(UserPoolId=identity.config["pool_id"], Username=settings.admin_email)
+                identity.client.admin_get_user(
+                    UserPoolId=identity.config["pool_id"], Username=settings.admin_email
+                )
                 exists = True
             except identity.client.exceptions.UserNotFoundException:
                 pass
@@ -45,8 +47,16 @@ def main(argv=None):
             if not exists:
                 print(f"Senha inicial (guarde localmente): {password}")
             return 0
-        with httpx.Client(timeout=45, follow_redirects=True, headers={"User-Agent": "Vigilia/0.1 educational-catalog-crawler"}) as client:
-            source, nvd, sender = CisaCrawler(client), NvdClient(client, settings.nvd_api_key), SmtpSender(settings)
+        with httpx.Client(
+            timeout=45,
+            follow_redirects=True,
+            headers={"User-Agent": "Vigilia/0.1 educational-catalog-crawler"},
+        ) as client:
+            source, nvd, sender = (
+                CisaCrawler(client),
+                NvdClient(client, settings.nvd_api_key),
+                SmtpSender(settings),
+            )
             if args.command == "collect":
                 if args.pages < 0:
                     parser.error("--pages deve ser >= 0")

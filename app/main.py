@@ -9,6 +9,8 @@ from app.presentation.routes import router
 from app.presentation.auth import router as auth_router
 from app.presentation.admin import router as admin_router
 from app.presentation.alerts import router as alerts_router
+from app.presentation.pages import ROOT, router as pages_router
+from fastapi.staticfiles import StaticFiles
 from app.infrastructure.cognito import CognitoIdentity
 from app.settings import Settings, connect
 
@@ -26,11 +28,18 @@ def create_app(repository=None, identity=None):
         if repository is None:
             app.state.repository.db.client.close()
 
-    app = FastAPI(title="Vigília", version="0.1.0", lifespan=lifespan, description="Catálogo CISA KEV enriquecido pela NVD e alertas por produto.")
+    app = FastAPI(
+        title="Vigília",
+        version="0.1.0",
+        lifespan=lifespan,
+        description="Catálogo CISA KEV enriquecido pela NVD e alertas por produto.",
+    )
     app.include_router(router)
     app.include_router(auth_router)
     app.include_router(admin_router)
     app.include_router(alerts_router)
+    app.include_router(pages_router)
+    app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 
     @app.middleware("http")
     async def csrf_protection(request: Request, call_next):
@@ -47,7 +56,9 @@ def create_app(repository=None, identity=None):
                 if not session or not secrets.compare_digest(session["csrf"], header):
                     valid = False
             if not valid:
-                return JSONResponse({"detail": "Token CSRF inválido; atualize a página"}, status_code=403)
+                return JSONResponse(
+                    {"detail": "Token CSRF inválido; atualize a página"}, status_code=403
+                )
         return await call_next(request)
 
     return app

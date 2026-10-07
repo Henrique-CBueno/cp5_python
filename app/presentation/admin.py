@@ -11,7 +11,13 @@ router = APIRouter(prefix="/api/admin", tags=["Administração"], dependencies=[
 
 @router.get("/status")
 def status(repo=Depends(repository)):
-    return {"status": "ok", "records": repo.list_records({}, page_size=1)["total"], "schedule": repo.schedule(), "runs": repo.runs()[:5], "deliveries": repo.delivery_counts()}
+    return {
+        "status": "ok",
+        "records": repo.list_records({}, page_size=1)["total"],
+        "schedule": repo.schedule(),
+        "runs": repo.runs()[:5],
+        "deliveries": repo.delivery_counts(),
+    }
 
 
 class Schedule(BaseModel):

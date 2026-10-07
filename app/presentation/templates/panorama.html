@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-heading"><div><h1>Panorama da base</h1><p>Da concentração por fornecedor às fraquezas recorrentes: contexto para investigar melhor.</p></div><a href="/" class="text-link">Voltar à investigação {{ icon('arrow') }}</a></div>
+{% include '_filters.html' %}
+<div id="metrics" class="metrics" aria-live="polite"></div>
+<section id="insights" class="insights" aria-label="Insights da base"></section>
+<div class="chart-grid panorama-grid">
+{% for id,heading,label in [('vendors','Fornecedores mais presentes','Vulnerabilidades por fornecedor'),('severity','Distribuição de severidade','Vulnerabilidades por severidade'),('months','Inclusões no catálogo ao longo do tempo','Inclusões por mês'),('cwes','Fraquezas recorrentes','Vulnerabilidades por CWE'),('ransomware','Fornecedores com uso conhecido em ransomware','Uso conhecido em ransomware por fornecedor')] %}
+<section class="chart-panel"><h2>{{ heading }}</h2><div class="chart-wrap"><canvas id="{{ id }}-chart" role="img" aria-label="{{ label }}"></canvas></div><details><summary>Ver dados do gráfico</summary><div id="{{ id }}-data"></div></details></section>
+{% endfor %}
+</div>
+<p class="context-note">Os gráficos descrevem a base coletada. Contagens não medem a segurança de um fornecedor. Inclusão no KEV não é a data de publicação do CVE.</p>
+{% endblock %}

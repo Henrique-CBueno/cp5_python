@@ -11,16 +11,24 @@ class Execute:
     def run(self, job):
         counts = job["progress"].copy()
         warning = None
+
         def progress(value):
             counts.update(value)
             self.repository.progress_run(job["id"], counts, datetime.now(timezone.utc))
+
         try:
-            Collect(self.source, self.repository).run(job["max_pages"], job["baseline"], progress, job["id"])
+            Collect(self.source, self.repository).run(
+                job["max_pages"], job["baseline"], progress, job["id"]
+            )
             try:
                 counts.update(Enrich(self.enrichment, self.repository).run())
             except Exception as exc:
                 warning = f"Enriquecimento NVD pendente: {type(exc).__name__}"
         except Exception as exc:
-            self.repository.finish_run(job["id"], counts, datetime.now(timezone.utc), error=f"{type(exc).__name__}: {exc}")
+            self.repository.finish_run(
+                job["id"], counts, datetime.now(timezone.utc), error=f"{type(exc).__name__}: {exc}"
+            )
         else:
-            self.repository.finish_run(job["id"], counts, datetime.now(timezone.utc), warning=warning)
+            self.repository.finish_run(
+                job["id"], counts, datetime.now(timezone.utc), warning=warning
+            )

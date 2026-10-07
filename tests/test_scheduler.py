@@ -24,20 +24,38 @@ def test_admin_schedule_queue_and_exclusive_reservation(repository):
 
 
 @pytest.mark.integration
-def test_worker_collects_then_releases_grouped_alerts_and_reports_nvd_failure(repository, vulnerability):
+def test_worker_collects_then_releases_grouped_alerts_and_reports_nvd_failure(
+    repository, vulnerability
+):
     from app.application.execute import Execute
+
     now = datetime.now(timezone.utc)
     repository.configure_schedule({"enabled": False, "interval_hours": 12, "max_pages": 0}, now)
     repository.db.settings.update_one({"_id": "schedule"}, {"$set": {"baseline_completed": True}})
-    repository.save_subscription("alice", {"name": "Apache", "email": "alerts@example.org", "products": ["apache::log4j"], "changes": True, "enabled": True})
+    repository.save_subscription(
+        "alice",
+        {
+            "name": "Apache",
+            "email": "alerts@example.org",
+            "products": ["apache::log4j"],
+            "changes": True,
+            "enabled": True,
+        },
+    )
     repository.enqueue_run("admin", max_pages=1)
     job = repository.reserve_run(now + timedelta(seconds=1))
+
     class Source:
         def pages(self, max_pages=0):
-            yield "https://www.cisa.gov/catalog", [vulnerability, vulnerability.model_copy(update={"cve_id": "CVE-2026-12345"})]
+            yield (
+                "https://www.cisa.gov/catalog",
+                [vulnerability, vulnerability.model_copy(update={"cve_id": "CVE-2026-12345"})],
+            )
+
     class Missing:
         def fetch(self, ids):
             raise ValueError("invalid NVD response")
+
     Execute(repository, Source(), Missing()).run(job)
     execution = repository.runs()[0]
     assert execution["status"] == "completed"
@@ -60,3 +78,37 @@ def test_interrupted_worker_is_recovered_and_stale_owner_cannot_finish(repositor
     assert first["id"] != second["id"]
     assert repository.finish_run(first["id"], {}, now + timedelta(minutes=16)) is False
     assert any(r["status"] == "failed" for r in repository.runs())
+
+
+@pytest.mark.integration
+def test_failed_initial_collection_preserves_data_without_completing_baseline(
+    repository, vulnerability
+):
+    from app.application.execute import Execute
+
+    now = datetime.now(timezone.utc)
+    repository.configure_schedule({"enabled": False, "interval_hours": 12, "max_pages": 0}, now)
+    repository.enqueue_run("admin")
+    job = repository.reserve_run(now)
+
+    class BrokenSource:
+        def pages(self, max_pages=0):
+            yield "https://www.cisa.gov/catalog", [vulnerability]
+            raise ValueError("Source unavailable")
+
+    Execute(repository, BrokenSource(), None).run(job)
+    assert repository.runs()[0]["status"] == "failed"
+    assert repository.runs()[0]["progress"]["pages"] == 1
+    assert repository.get(vulnerability.cve_id)
+    assert repository.schedule()["baseline_completed"] is False
+
+
+@pytest.mark.integration
+def test_stale_worker_cannot_write_vulnerabilities(repository, vulnerability):
+    now = datetime.now(timezone.utc)
+    repository.configure_schedule({"enabled": False, "interval_hours": 12, "max_pages": 0}, now)
+    repository.enqueue_run("admin")
+    job = repository.reserve_run(now)
+    with pytest.raises(ValueError, match="expirada"):
+        repository.save(vulnerability, now + timedelta(minutes=16), run_id=job["id"])
+    assert repository.get(vulnerability.cve_id) is None

@@ -41,7 +41,11 @@ def current_user(request: Request, repo=Depends(repository), adapter=Depends(ide
         claims = adapter.validate(session["token"])
     except (jwt.PyJWTError, ValueError):
         raise HTTPException(401, "Sessão expirada; entre novamente")
-    return {"sub": claims["sub"], "email": claims["email"], "admin": "admin" in claims.get("cognito:groups", [])}
+    return {
+        "sub": claims["sub"],
+        "email": claims["email"],
+        "admin": "admin" in claims.get("cognito:groups", []),
+    }
 
 
 def admin(user=Depends(current_user)):
@@ -53,7 +57,9 @@ def admin(user=Depends(current_user)):
 @router.get("/session")
 def session(request: Request, response: Response, repo=Depends(repository)):
     csrf = request.cookies.get("vigilia_csrf") or secrets.token_urlsafe(32)
-    response.set_cookie("vigilia_csrf", csrf, samesite="strict", secure=request.app.state.settings.cookie_secure)
+    response.set_cookie(
+        "vigilia_csrf", csrf, samesite="strict", secure=request.app.state.settings.cookie_secure
+    )
     user = None
     if request.cookies.get("vigilia_session"):
         try:
@@ -82,7 +88,13 @@ def confirm(body: Confirmation, adapter=Depends(identity)):
 
 
 @router.post("/auth/login")
-def login(body: Credentials, request: Request, response: Response, repo=Depends(repository), adapter=Depends(identity)):
+def login(
+    body: Credentials,
+    request: Request,
+    response: Response,
+    repo=Depends(repository),
+    adapter=Depends(identity),
+):
     try:
         token = adapter.login(str(body.email), body.password)
         claims = adapter.validate(token)
@@ -90,16 +102,25 @@ def login(body: Credentials, request: Request, response: Response, repo=Depends(
         raise HTTPException(401, str(exc))
     session_id = secrets.token_urlsafe(32)
     csrf = secrets.token_urlsafe(32)
-    repo.save_session(hashlib.sha256(session_id.encode()).hexdigest(), token, datetime.fromtimestamp(claims["exp"], timezone.utc), csrf)
+    repo.save_session(
+        hashlib.sha256(session_id.encode()).hexdigest(),
+        token,
+        datetime.fromtimestamp(claims["exp"], timezone.utc),
+        csrf,
+    )
     secure = request.app.state.settings.cookie_secure
-    response.set_cookie("vigilia_session", session_id, httponly=True, samesite="strict", secure=secure, max_age=3600)
+    response.set_cookie(
+        "vigilia_session", session_id, httponly=True, samesite="strict", secure=secure, max_age=3600
+    )
     response.set_cookie("vigilia_csrf", csrf, samesite="strict", secure=secure, max_age=3600)
     return {"message": "Sessão iniciada", "csrf": csrf}
 
 
 @router.post("/auth/logout", status_code=204)
 def logout(request: Request, response: Response, repo=Depends(repository)):
-    repo.delete_session(hashlib.sha256(request.cookies.get("vigilia_session", "").encode()).hexdigest())
+    repo.delete_session(
+        hashlib.sha256(request.cookies.get("vigilia_session", "").encode()).hexdigest()
+    )
     response.delete_cookie("vigilia_session")
     response.delete_cookie("vigilia_csrf")
 
@@ -118,7 +139,9 @@ def subscribe(body: Subscription, user=Depends(current_user), repo=Depends(repos
 
 
 @router.put("/subscriptions/{subscription_id}")
-def update_subscription(subscription_id: str, body: Subscription, user=Depends(current_user), repo=Depends(repository)):
+def update_subscription(
+    subscription_id: str, body: Subscription, user=Depends(current_user), repo=Depends(repository)
+):
     try:
         result = Subscribe(repo).save(user["sub"], user["email"], body, subscription_id)
     except ValueError as exc:

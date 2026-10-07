@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from app.domain.vulnerability import Vulnerability
 
 CATALOG = "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+EXPORT = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 
 
 class CisaCrawler:
@@ -16,6 +17,7 @@ class CisaCrawler:
 
     def pages(self, max_pages: int = 0):
         url, visited = CATALOG, set()
+        unique_ids, expected_total = set(), None
         while url and (not max_pages or len(visited) < max_pages):
             if url in visited or urlparse(url).netloc != "www.cisa.gov":
                 raise ValueError("Paginação inválida na fonte CISA")
@@ -34,6 +36,9 @@ class CisaCrawler:
                         raise
                     time.sleep(2**attempt)
             soup = BeautifulSoup(response.text, "html.parser")
+            total = re.search(r"of\s+([\d,]+)\s+results", soup.get_text(" ", strip=True))
+            if total:
+                expected_total = int(total[1].replace(",", ""))
             cards = soup.select("article.c-teaser")
             if not cards:
                 raise ValueError("A página CISA não contém registros; verifique a fonte")
@@ -70,8 +75,40 @@ class CisaCrawler:
                         references=[a["href"] for a in card.select(".c-teaser__notes a[href]")],
                     )
                 )
+            unique_ids.update(record.cve_id for record in records)
             yield url, records
             following = soup.select_one('a[rel="next"]')
             url = urljoin(url, following["href"]) if following else None
             if url and self.pause:
                 time.sleep(self.pause)
+        if not max_pages and expected_total and len(unique_ids) < expected_total:
+            # Reconciliação complementar: a paginação HTML pode repetir CVEs.
+            response = self.client.get(EXPORT)
+            response.raise_for_status()
+            exported = response.json()
+            missing = []
+            for item in exported["vulnerabilities"]:
+                if item["cveID"] in unique_ids:
+                    continue
+                missing.append(
+                    Vulnerability(
+                        cve_id=item["cveID"],
+                        vendor=item["vendorProject"],
+                        product=item["product"],
+                        title=item["vulnerabilityName"],
+                        description=item["shortDescription"],
+                        action=item["requiredAction"],
+                        date_added=item["dateAdded"],
+                        due_date=item["dueDate"],
+                        ransomware=item["knownRansomwareCampaignUse"],
+                        source_url=EXPORT,
+                        references=re.findall(r"https?://[^\s;]+", item.get("notes", "")),
+                        cwes=item.get("cwes", []),
+                    )
+                )
+            unique_ids.update(record.cve_id for record in missing)
+            if len(unique_ids) < exported["count"]:
+                raise ValueError(
+                    f"Catálogo incompleto: {len(unique_ids)} CVEs únicos para {exported['count']} resultados informados pela fonte"
+                )
+            yield EXPORT, missing

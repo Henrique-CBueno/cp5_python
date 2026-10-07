@@ -13,11 +13,13 @@ def repository(request: Request):
 
 
 def selection(
-    q: str = Query("", max_length=200), vendor: str = Query("", max_length=200),
+    q: str = Query("", max_length=200),
+    vendor: str = Query("", max_length=200),
     product_key: str = Query("", max_length=400),
     ransomware: Literal["", "Known", "Unknown"] = "",
     severity: Literal["", "CRITICAL", "HIGH", "MEDIUM", "LOW", "NONE", "UNASSESSED"] = "",
-    date_from: date | None = None, date_to: date | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
 ):
     if date_from and date_to and date_from > date_to:
         raise HTTPException(422, "Período inválido")
@@ -25,7 +27,12 @@ def selection(
 
 
 @router.get("/vulnerabilities", tags=["Catálogo"])
-def list_records(repo=Depends(repository), selected=Depends(selection), page: Annotated[int, Query(ge=1)] = 1, page_size: Annotated[int, Query(ge=1, le=100)] = 20):
+def list_records(
+    repo=Depends(repository),
+    selected=Depends(selection),
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+):
     return repo.list_records(selected, page, page_size)
 
 

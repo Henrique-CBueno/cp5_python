@@ -19,5 +19,6 @@ class Settings(BaseSettings):
 def connect(settings: Settings):
     from pymongo import MongoClient
     from app.infrastructure.mongo import MongoRepository
+
     client = MongoClient(settings.mongo_uri, tz_aware=True, serverSelectionTimeoutMS=10000)
     return MongoRepository(client[settings.mongo_database])

@@ -21,7 +21,7 @@ class Notify:
                 continue
             try:
                 self.sender.send(delivery)
-            except (smtplib.SMTPException, OSError) as exc:
+            except (smtplib.SMTPException, OSError, ValueError) as exc:
                 self.repository.finish_delivery(delivery, now, error=str(exc))
                 counts["failed"] += 1
             else:

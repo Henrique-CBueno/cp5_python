@@ -1,0 +1,46 @@
+{% macro icon(name) -%}
+<svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{% if name == 'search' %}<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>
+{% elif name == 'chart' %}<path d="M4 4v16h16M8 15v-4m5 4V7m5 8V5"/>
+{% elif name == 'bell' %}<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>
+{% elif name == 'settings' %}<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="9" cy="6" r="2" fill="currentColor"/><circle cx="15" cy="12" r="2" fill="currentColor"/><circle cx="8" cy="18" r="2" fill="currentColor"/>
+{% elif name == 'arrow' %}<path d="M5 12h14m-5-5 5 5-5 5"/>
+{% elif name == 'external' %}<path d="M14 3h7v7m0-7L10 14M9 3H3v18h18v-6"/>
+{% endif %}</svg>
+{%- endmacro %}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Investigue vulnerabilidades com exploração conhecida e acompanhe os produtos que importam para você.">
+  <title>{{ title }} · Vigília</title>
+  <link rel="icon" href="/static/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/vendor/chart.umd.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body data-view="{{ view }}" {% if cve_id is defined %}data-cve="{{ cve_id }}"{% endif %}>
+<a href="#main" class="skip-link">Ir para o conteúdo</a>
+<aside class="rail">
+  <a class="brand" href="/" aria-label="Vigília — início"><svg width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M5 6h7l4 13 4-13h7L16 28 5 6Z" fill="currentColor"/><path d="M12 3h8" stroke="currentColor" stroke-width="2"/></svg><span>Vigília<span class="brand-caption">Vulnerabilidades & evidências</span></span></a>
+  <nav aria-label="Navegação principal">
+    <a href="/" aria-label="Investigar" {% if view in ['workbench','detail'] %}aria-current="page"{% endif %}>{{ icon('search') }}<span>Investigar</span></a>
+    <a href="/panorama" aria-label="Panorama" {% if view == 'panorama' %}aria-current="page"{% endif %}>{{ icon('chart') }}<span>Panorama</span></a>
+    <a href="/alertas" aria-label="Meus alertas" {% if view == 'alerts' %}aria-current="page"{% endif %}>{{ icon('bell') }}<span>Meus alertas</span></a>
+    <a href="/admin" aria-label="Administração" id="admin-link" hidden {% if view == 'admin' %}aria-current="page"{% endif %}>{{ icon('settings') }}<span>Administração</span></a>
+  </nav>
+  <div class="rail-bottom"><span class="source-dot"></span><span>Fontes públicas<br><strong>CISA KEV + NVD</strong></span><a href="/docs" class="api-link">Documentação da API {{ icon('external') }}</a></div>
+</aside>
+<div class="app-shell">
+  <header class="topbar"><span class="breadcrumb">Bancada de análise <span>/</span> {{ title }}</span><div id="account-nav"><a href="/entrar">Entrar {{ icon('arrow') }}</a></div></header>
+  <noscript><p class="empty">Ative o JavaScript para consultar os dados pela API e configurar alertas.</p></noscript>
+  <main id="main" inert>
+    <fieldset id="app-controls" disabled><legend class="sr-only">Área de trabalho</legend>
+    {% block content %}{% endblock %}
+    </fieldset>
+  </main>
+  <footer class="footer"><span>Vigília · Dados públicos, decisões informadas.</span><span>This product uses data from the NVD API but is not endorsed or certified by the NVD.</span></footer>
+</div>
+<div id="notice" class="notice" role="status" aria-live="polite" hidden><span id="notice-text"></span><button type="button" aria-label="Fechar mensagem" id="notice-close">Fechar</button></div>
+</body>
+</html>

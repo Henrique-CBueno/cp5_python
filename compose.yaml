@@ -3,17 +3,19 @@ services:
     build: .
     environment: &app-environment
       MONGO_URI: mongodb://mongo:27017/?replicaSet=rs0
+      MONGO_DATABASE: ${MONGO_DATABASE:-vigilia}
       COGNITO_ENDPOINT: http://cognito:9229
-      COGNITO_ISSUER: http://0.0.0.0:9229
+      COGNITO_ISSUER: ${COGNITO_ISSUER:-http://0.0.0.0:9229}
       SMTP_HOST: mailpit
-      PUBLIC_URL: http://localhost:8000
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8000}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       NVD_API_KEY: ${NVD_API_KEY:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.org}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     ports: ["127.0.0.1:8000:8000"]
     depends_on:
       mongo: {condition: service_healthy}
-      cognito: {condition: service_started}
+      cognito: {condition: service_healthy}
       mailpit: {condition: service_started}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
@@ -26,7 +28,7 @@ services:
     environment: *app-environment
     depends_on:
       mongo: {condition: service_healthy}
-      cognito: {condition: service_started}
+      cognito: {condition: service_healthy}
       mailpit: {condition: service_started}
   mongo:
     image: mongo:7.0
@@ -47,6 +49,11 @@ services:
       CODE: "123456"
     ports: ["127.0.0.1:9229:9229"]
     volumes: ["cognito-data:/app/.cognito"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:9229/',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 volumes:
   mongo-data:
   cognito-data:
