@@ -6,6 +6,33 @@ import pytest
 
 
 @pytest.mark.browser
+@pytest.mark.parametrize("path", ["/entrar", "/cadastrar"])
+def test_account_footer_ends_at_viewport_or_after_long_content(path):
+    from playwright.sync_api import expect, sync_playwright
+
+    base = os.getenv("BROWSER_BASE_URL", "http://localhost:8000")
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch()
+        page = browser.new_page()
+        for width, height in ((1440, 1000), (1920, 1080), (1280, 720), (390, 844)):
+            page.set_viewport_size({"width": width, "height": height})
+            page.goto(base + path)
+            expect(page.get_by_label("E-mail da conta")).to_be_enabled()
+            dimensions = page.evaluate("""() => {
+                const footer = document.querySelector('.footer').getBoundingClientRect();
+                const form = document.querySelector('.account-form-panel').getBoundingClientRect();
+                return {footerBottom: footer.bottom + scrollY, footerTop: footer.top + scrollY,
+                    formBottom: form.bottom + scrollY, documentHeight: document.documentElement.scrollHeight,
+                    overflow: document.documentElement.scrollWidth > innerWidth};
+            }""")
+            assert dimensions["footerBottom"] >= height - 1
+            assert abs(dimensions["footerBottom"] - dimensions["documentHeight"]) <= 1
+            assert dimensions["footerTop"] >= dimensions["formBottom"]
+            assert dimensions["overflow"] is False
+        browser.close()
+
+
+@pytest.mark.browser
 def test_browser_investigation_subscription_admin_and_email():
     from playwright.sync_api import expect, sync_playwright
     from app.settings import Settings
