@@ -1,5 +1,6 @@
 import hashlib
 import json
+from datetime import datetime, timedelta, timezone
 
 from pymongo import ASCENDING
 
@@ -64,3 +65,42 @@ class MongoRepository:
             "page": page,
             "page_size": page_size,
         }
+
+    def products(self):
+        return list(self.db.vulnerabilities.aggregate([
+            {"$match": {"simulated": False}},
+            {"$group": {"_id": "$product_key", "vendor": {"$first": "$vendor"}, "product": {"$first": "$product"}, "count": {"$sum": 1}}},
+            {"$project": {"_id": 0, "key": "$_id", "vendor": 1, "product": 1, "count": 1}},
+            {"$sort": {"vendor": 1, "product": 1}},
+        ]))
+
+    def enrichment_ids(self):
+        return [r["cve_id"] for r in self.db.vulnerabilities.find({"simulated": False}, {"cve_id": 1}).sort("nvd_updated_at", 1)]
+
+    def save_enrichment(self, cve_id, value, now):
+        fields = {"nvd_status": "ready" if value else "pending", "nvd_checked_at": now}
+        if value:
+            fields |= {"nvd": value, "nvd_updated_at": now}
+        self.db.vulnerabilities.update_one({"cve_id": cve_id}, {"$set": fields})
+
+    def statistics(self, filters):
+        recent = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
+        def grouped(expression):
+            return [{"$group": {"_id": expression, "count": {"$sum": 1}}}, {"$sort": {"count": -1, "_id": 1}}, {"$project": {"_id": 0, "label": "$_id", "count": 1}}]
+        result = next(self.db.vulnerabilities.aggregate([
+            {"$match": filters | {"simulated": False}},
+            {"$facet": {
+                "totals": [{"$group": {"_id": None, "total": {"$sum": 1}, "vendors": {"$addToSet": "$vendor"}, "ransomware": {"$sum": {"$cond": [{"$eq": ["$ransomware", "Known"]}, 1, 0]}}, "recent": {"$sum": {"$cond": [{"$gte": ["$date_added", recent]}, 1, 0]}}, "assessed": {"$sum": {"$cond": [{"$ifNull": ["$nvd.primary", False]}, 1, 0]}}, "critical_ransomware": {"$sum": {"$cond": [{"$and": [{"$eq": ["$ransomware", "Known"]}, {"$eq": ["$nvd.primary.severity", "CRITICAL"]}]}, 1, 0]}}}}],
+                "vendors": grouped("$vendor") + [{"$limit": 10}],
+                "months": grouped({"$substr": ["$date_added", 0, 7]}) + [{"$sort": {"label": 1}}],
+                "severity": grouped({"$ifNull": ["$nvd.primary.severity", "UNASSESSED"]}),
+                "cwes": [{"$unwind": "$cwes"}] + grouped("$cwes") + [{"$limit": 10}],
+                "ransomware_vendors": [{"$match": {"ransomware": "Known"}}] + grouped("$vendor") + [{"$limit": 10}],
+            }},
+        ]))
+        totals = result.pop("totals")
+        summary = totals[0] if totals else {"total": 0, "vendors": [], "ransomware": 0, "recent": 0, "assessed": 0, "critical_ransomware": 0}
+        total = summary["total"]
+        def percent(value):
+            return round(100 * value / total, 1) if total else 0
+        return result | {"total": total, "vendors_count": len(summary["vendors"]), "ransomware_percent": percent(summary["ransomware"]), "recent_count": summary["recent"], "assessed_percent": percent(summary["assessed"]), "critical_ransomware": summary["critical_ransomware"], "top5_percent": percent(sum(v["count"] for v in result["vendors"][:5]))}
