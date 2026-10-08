@@ -146,3 +146,40 @@ Eles exercitam investigação, cadastro, login, assinatura com destinatário alt
 - [Roteiro da demonstração](docs/DEMONSTRATION.md)
 
 Chart.js 4.4.8 e Public Sans são distribuídos localmente com suas licenças em `app/presentation/static/vendor/`. Os dados KEV possuem [licença CC0](https://www.cisa.gov/sites/default/files/licenses/kev/license.txt). O uso da NVD é identificado na interface, sem sugerir endosso.
+
+## Integrantes
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="https://avatars.githubusercontent.com/u/88509491?v=4" width="115" alt="Foto de Henrique Bueno"/><br>
+      <sub>
+        <b>Henrique Bueno - RM570591</b>
+      </sub>
+    </td>
+    <td align="center">
+      <img src="https://avatars.githubusercontent.com/u/163877731?v=4" width="115" alt="Foto de Állex Brandão"/><br>
+      <sub>
+        <b>Állex Brandão - RM571383</b>
+      </sub>
+    </td>
+    <td align="center">
+      <img src="https://avatars.githubusercontent.com/u/53922235?v=4" width="115" alt="Foto de Erick Nathan"/><br>
+      <sub>
+        <b>Erick Nathan - RM573635</b>
+      </sub>
+    </td>
+    <td align="center">
+      <img src="https://avatars.githubusercontent.com/u/132668384?v=4" width="115" alt="Foto de Murilo Gomes"/><br>
+      <sub>
+        <b>Murilo Gomes - RM570941</b>
+      </sub>
+    </td>
+    <td align="center">
+      <img src="https://avatars.githubusercontent.com/u/108024578?v=4" width="115" alt="Foto de Enzo Abreu"/><br>
+      <sub>
+        <b>Enzo Abreu - RM572995</b>
+      </sub>
+    </td>
+  </tr>
+</table>
