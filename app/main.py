@@ -1,17 +1,18 @@
+import hashlib
+import secrets
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-import hashlib
-import secrets
+from fastapi.staticfiles import StaticFiles
 
-from app.presentation.routes import router
-from app.presentation.auth import router as auth_router
+from app.infrastructure.cognito import CognitoIdentity
 from app.presentation.admin import router as admin_router
 from app.presentation.alerts import router as alerts_router
-from app.presentation.pages import ROOT, router as pages_router
-from fastapi.staticfiles import StaticFiles
-from app.infrastructure.cognito import CognitoIdentity
+from app.presentation.auth import router as auth_router
+from app.presentation.pages import ROOT
+from app.presentation.pages import router as pages_router
+from app.presentation.routes import router
 from app.settings import Settings, connect
 
 

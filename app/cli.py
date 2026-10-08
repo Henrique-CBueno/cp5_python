@@ -3,7 +3,7 @@ import json
 import logging
 import secrets
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 
@@ -61,7 +61,7 @@ def main(argv=None):
                 if args.pages < 0:
                     parser.error("--pages deve ser >= 0")
                 queued = repo.enqueue_run("cli", args.pages)
-                job = repo.reserve_run(datetime.now(timezone.utc))
+                job = repo.reserve_run(datetime.now(UTC))
                 if not job:
                     print("Coleta em andamento; solicitação ficou na fila: " + queued["id"])
                     return 0

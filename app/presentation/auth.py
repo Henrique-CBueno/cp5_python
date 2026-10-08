@@ -1,6 +1,6 @@
 import hashlib
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -105,7 +105,7 @@ def login(
     repo.save_session(
         hashlib.sha256(session_id.encode()).hexdigest(),
         token,
-        datetime.fromtimestamp(claims["exp"], timezone.utc),
+        datetime.fromtimestamp(claims["exp"], UTC),
         csrf,
     )
     secure = request.app.state.settings.cookie_secure

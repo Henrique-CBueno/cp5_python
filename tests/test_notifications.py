@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 import pytest
@@ -6,7 +6,7 @@ import pytest
 
 @pytest.mark.integration
 def test_outbox_matches_subscriptions_and_does_not_repeat_recollection(repository, vulnerability):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     repository.save(vulnerability, now, baseline=True)
     subscription = repository.save_subscription(
         "alice",
@@ -57,7 +57,7 @@ def test_outbox_matches_subscriptions_and_does_not_repeat_recollection(repositor
 
 @pytest.mark.integration
 def test_transaction_rolls_back_cve_when_outbox_write_fails(repository, vulnerability, monkeypatch):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     repository.save_subscription(
         "alice",
         {
@@ -90,7 +90,7 @@ def test_delivery_reservation_retry_and_smtp_mailpit(repository, vulnerability):
     from app.infrastructure.smtp import SmtpSender
     from app.settings import Settings
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     repository.save_subscription(
         "alice",
         {
@@ -121,10 +121,11 @@ def test_delivery_reservation_retry_and_smtp_mailpit(repository, vulnerability):
 def test_unsubscribed_delivery_is_cancelled_and_send_failure_is_retryable(
     repository, vulnerability
 ):
-    from app.application.notify import Notify
     import smtplib
 
-    now = datetime.now(timezone.utc)
+    from app.application.notify import Notify
+
+    now = datetime.now(UTC)
     sub = repository.save_subscription(
         "alice",
         {
@@ -150,7 +151,7 @@ def test_unsubscribed_delivery_is_cancelled_and_send_failure_is_retryable(
 def test_exhausted_delivery_requires_explicit_retry_and_old_claim_cannot_finish(
     repository, vulnerability
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     repository.save_subscription(
         "alice",
         {
@@ -184,7 +185,7 @@ def test_invalid_smtp_message_is_recorded_as_failure_instead_of_poisoning_worker
 ):
     from app.application.notify import Notify
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     repository.save_subscription(
         "alice",
         {

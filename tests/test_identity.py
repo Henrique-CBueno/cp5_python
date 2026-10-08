@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC
 
 import jwt
 import pytest
@@ -29,14 +30,15 @@ def test_cognito_signup_confirmation_and_validated_tokens(repository):
 
 @pytest.mark.integration
 def test_alerts_require_login_and_subscriptions_are_owned(repository, vulnerability):
-    from app.main import create_app
+    from datetime import datetime
+
     from app.infrastructure.cognito import CognitoIdentity
+    from app.main import create_app
     from app.settings import Settings
-    from datetime import datetime, timezone
 
     identity = CognitoIdentity(Settings(), repository)
     identity.provision()
-    repository.save(vulnerability, datetime.now(timezone.utc), baseline=True)
+    repository.save(vulnerability, datetime.now(UTC), baseline=True)
     with (
         TestClient(create_app(repository, identity)) as alice,
         TestClient(create_app(repository, identity)) as bob,

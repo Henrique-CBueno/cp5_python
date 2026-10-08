@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.domain.vulnerability import Vulnerability
 
@@ -21,5 +21,5 @@ class Simulate:
             "simulated": True,
         }
         record = Vulnerability(**data)
-        self.repository.save(record, datetime.now(timezone.utc))
+        self.repository.save(record, datetime.now(UTC))
         return {"cve_id": record.cve_id, "simulated": True}

@@ -1,11 +1,11 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 
 @pytest.mark.integration
 def test_recollection_preserves_identity_and_first_seen(repository, vulnerability):
-    first = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    first = datetime(2026, 1, 1, tzinfo=UTC)
     assert repository.save(vulnerability, first, baseline=True) == "new"
     assert repository.save(vulnerability, first + timedelta(hours=12)) == "unchanged"
     updated = vulnerability.model_copy(update={"action": "Upgrade immediately"})

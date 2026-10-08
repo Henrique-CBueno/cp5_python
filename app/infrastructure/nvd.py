@@ -1,7 +1,8 @@
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
+
 from app.domain.assessment import CvssAssessment
 
 ENDPOINT = "https://services.nvd.nist.gov/rest/json/cves/2.0"
@@ -11,11 +12,7 @@ def utc_timestamp(value):
     if not value:
         return None
     parsed = datetime.fromisoformat(value)
-    return (
-        (parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc))
-        .astimezone(timezone.utc)
-        .isoformat()
-    )
+    return (parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)).astimezone(UTC).isoformat()
 
 
 class NvdClient:

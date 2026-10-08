@@ -1,11 +1,11 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 
 @pytest.mark.integration
 def test_admin_schedule_queue_and_exclusive_reservation(repository):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     assert repository.schedule()["interval_hours"] == 12
     repository.configure_schedule({"enabled": False, "interval_hours": 6, "max_pages": 2}, now)
     assert repository.reserve_run(now) is None
@@ -29,7 +29,7 @@ def test_worker_collects_then_releases_grouped_alerts_and_reports_nvd_failure(
 ):
     from app.application.execute import Execute
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     repository.configure_schedule({"enabled": False, "interval_hours": 12, "max_pages": 0}, now)
     repository.db.settings.update_one({"_id": "schedule"}, {"$set": {"baseline_completed": True}})
     repository.save_subscription(
@@ -64,12 +64,12 @@ def test_worker_collects_then_releases_grouped_alerts_and_reports_nvd_failure(
     alerts = repository.alerts("alice")
     assert len(alerts) == 1
     assert len(alerts[0]["items"]) == 2
-    assert repository.reserve_delivery(datetime.now(timezone.utc)) is not None
+    assert repository.reserve_delivery(datetime.now(UTC)) is not None
 
 
 @pytest.mark.integration
 def test_interrupted_worker_is_recovered_and_stale_owner_cannot_finish(repository):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     repository.configure_schedule({"enabled": False, "interval_hours": 12, "max_pages": 0}, now)
     repository.enqueue_run("admin")
     first = repository.reserve_run(now)
@@ -86,7 +86,7 @@ def test_failed_initial_collection_preserves_data_without_completing_baseline(
 ):
     from app.application.execute import Execute
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     repository.configure_schedule({"enabled": False, "interval_hours": 12, "max_pages": 0}, now)
     repository.enqueue_run("admin")
     job = repository.reserve_run(now)
@@ -105,7 +105,7 @@ def test_failed_initial_collection_preserves_data_without_completing_baseline(
 
 @pytest.mark.integration
 def test_stale_worker_cannot_write_vulnerabilities(repository, vulnerability):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     repository.configure_schedule({"enabled": False, "interval_hours": 12, "max_pages": 0}, now)
     repository.enqueue_run("admin")
     job = repository.reserve_run(now)

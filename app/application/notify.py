@@ -1,5 +1,5 @@
 import smtplib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Protocol
 
 
@@ -12,7 +12,7 @@ class Notify:
         self.repository, self.sender = repository, sender
 
     def run(self, now=None):
-        now = now or datetime.now(timezone.utc)
+        now = now or datetime.now(UTC)
         counts = {"sent": 0, "failed": 0, "cancelled": 0}
         while delivery := self.repository.reserve_delivery(now):
             if not self.repository.subscription_active(delivery):

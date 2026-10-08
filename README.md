@@ -106,7 +106,7 @@ python3 -m venv .venv
 .venv/bin/pip install -c constraints.txt -e '.[test,browser]'
 docker compose up -d --wait mongo cognito mailpit
 .venv/bin/ruff check app tests scripts
-.venv/bin/ruff format --check app tests scripts
+.venv/bin/black --check app tests scripts
 .venv/bin/pytest --cov --cov-report=term-missing --cov-report=json:.coverage.json
 .venv/bin/python scripts/check_coverage.py
 node --check app/presentation/static/app.js
@@ -124,6 +124,19 @@ Para os testes de navegador, mantenha a aplicação com a carga inicial concluí
 ```
 
 Eles exercitam investigação, cadastro, login, assinatura com destinatário alternativo, teste SMTP, simulação pelo admin, Mailpit, redirecionamento seguro, seleção por teclado e navegação móvel. O teste ponta a ponta exclui sua assinatura de teste ao terminar.
+
+## Qualidade de código
+
+[Ruff](https://docs.astral.sh/ruff/) faz o lint (erros, imports ordenados com `I`, bugbear `B` e modernização `UP`) e [Black](https://black.readthedocs.io/) formata o código. Ambos usam linha de 100 colunas e Python 3.12, configurados em `pyproject.toml`, e são instalados com o extra `test`.
+
+```bash
+.venv/bin/ruff check app tests scripts          # lint
+.venv/bin/ruff check --fix app tests scripts    # lint com correções automáticas
+.venv/bin/black app tests scripts               # formata
+.venv/bin/black --check app tests scripts       # só verifica (CI)
+```
+
+`B008` (`Depends` em argumentos padrão) e `B904` (encadeamento de exceções nas rotas) ficam desativadas por serem o idioma usado com FastAPI neste projeto.
 
 ## Documentação
 

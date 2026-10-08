@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -42,14 +43,14 @@ class ResetRequest(BaseModel):
 @router.post("/reset")
 def reset(body: ResetRequest, repo=Depends(repository)):
     try:
-        return repo.reset_operational_data(datetime.now(timezone.utc))
+        return repo.reset_operational_data(datetime.now(UTC))
     except ValueError as exc:
         raise HTTPException(409, str(exc))
 
 
 @router.put("/schedule")
 def schedule(body: Schedule, repo=Depends(repository)):
-    return repo.configure_schedule(body.model_dump(), datetime.now(timezone.utc))
+    return repo.configure_schedule(body.model_dump(), datetime.now(UTC))
 
 
 @router.get("/runs")

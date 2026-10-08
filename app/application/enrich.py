@@ -1,5 +1,6 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Protocol
+
 from app.domain.repository import VulnerabilityRepository
 
 
@@ -19,6 +20,6 @@ class Enrich:
             values = self.source.fetch(batch)
             for cve_id in batch:
                 value = values.get(cve_id)
-                self.repository.save_enrichment(cve_id, value, datetime.now(timezone.utc))
+                self.repository.save_enrichment(cve_id, value, datetime.now(UTC))
                 counts["enriched" if value else "missing"] += 1
         return counts

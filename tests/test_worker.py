@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -8,7 +8,7 @@ def test_worker_tick_consumes_admin_job_and_sends_alerts(repository, vulnerabili
     from app.worker import tick
 
     repository.configure_schedule(
-        {"enabled": False, "interval_hours": 12, "max_pages": 0}, datetime.now(timezone.utc)
+        {"enabled": False, "interval_hours": 12, "max_pages": 0}, datetime.now(UTC)
     )
     repository.db.settings.update_one({"_id": "schedule"}, {"$set": {"baseline_completed": True}})
     repository.save_subscription(
@@ -46,8 +46,9 @@ def test_worker_tick_consumes_admin_job_and_sends_alerts(repository, vulnerabili
 def test_cli_bootstrap_collection_and_single_worker_cycle(
     repository, vulnerability, monkeypatch, capsys
 ):
-    from app.cli import main
     import uuid
+
+    from app.cli import main
 
     monkeypatch.setenv("MONGO_DATABASE", repository.db.name)
     monkeypatch.setenv("ADMIN_EMAIL", f"admin-{uuid.uuid4().hex}@example.org")
@@ -57,7 +58,7 @@ def test_cli_bootstrap_collection_and_single_worker_cycle(
     assert main(["bootstrap"]) == 0
     assert "Senha inicial" not in capsys.readouterr().out
     repository.configure_schedule(
-        {"enabled": False, "interval_hours": 12, "max_pages": 0}, datetime.now(timezone.utc)
+        {"enabled": False, "interval_hours": 12, "max_pages": 0}, datetime.now(UTC)
     )
 
     class Source:

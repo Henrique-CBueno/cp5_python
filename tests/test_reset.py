@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -7,7 +7,7 @@ import pytest
 def test_reset_erases_operational_data_but_preserves_accounts_subscriptions_and_schedule(
     repository, vulnerability
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     repository.configure_schedule({"enabled": True, "interval_hours": 6, "max_pages": 0}, now)
     repository.db.settings.update_one({"_id": "schedule"}, {"$set": {"baseline_completed": True}})
     repository.configure_identity({"pool_id": "existing-pool", "client_id": "existing-client"})
@@ -45,7 +45,7 @@ def test_reset_erases_operational_data_but_preserves_accounts_subscriptions_and_
 @pytest.mark.integration
 @pytest.mark.parametrize("activity", ["collection", "delivery"])
 def test_reset_refuses_active_work_without_deleting_anything(repository, vulnerability, activity):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     repository.configure_schedule({"enabled": False, "interval_hours": 12, "max_pages": 0}, now)
     repository.save_subscription(
         "alice",
@@ -76,7 +76,7 @@ def test_reset_rolls_back_all_deletions_if_a_collection_fails(
 ):
     from pymongo.collection import Collection
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     repository.save(vulnerability, now, baseline=True)
     repository.enqueue_run("admin")
     original = Collection.delete_many

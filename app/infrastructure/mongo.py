@@ -1,6 +1,6 @@
-import uuid
 import re
-from datetime import datetime, timedelta, timezone
+import uuid
+from datetime import UTC, datetime, timedelta
 
 from pymongo import ASCENDING, ReturnDocument
 
@@ -23,7 +23,7 @@ class MongoRepository:
         self.db.outbox.create_index("id", unique=True)
         self.db.outbox.create_index([("status", 1), ("next_attempt", 1)])
         self.db.runs.create_index("id", unique=True)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         self.db.settings.update_one(
             {"_id": "schedule"},
             {
@@ -112,7 +112,7 @@ class MongoRepository:
             "id": uuid.uuid4().hex,
             "requested_by": requested_by,
             "max_pages": config["max_pages"] if max_pages is None else max_pages,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
             "status": "queued",
             "progress": {"pages": 0, "new": 0, "changed": 0, "unchanged": 0},
         }
@@ -237,14 +237,14 @@ class MongoRepository:
 
     def session(self, session_id):
         return self.db.sessions.find_one(
-            {"_id": session_id, "expires_at": {"$gt": datetime.now(timezone.utc)}}
+            {"_id": session_id, "expires_at": {"$gt": datetime.now(UTC)}}
         )
 
     def delete_session(self, session_id):
         self.db.sessions.delete_one({"_id": session_id})
 
     def save_subscription(self, owner, data, subscription_id=None):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if subscription_id:
             existing = self.db.subscriptions.find_one({"id": subscription_id, "owner": owner})
             if not existing:
@@ -313,7 +313,7 @@ class MongoRepository:
                     "$set": {
                         "status": "pending",
                         "attempts": 0,
-                        "next_attempt": datetime.now(timezone.utc),
+                        "next_attempt": datetime.now(UTC),
                     }
                 },
             ).modified_count
@@ -326,7 +326,7 @@ class MongoRepository:
         )
         if not subscription:
             return False
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         record = self.db.vulnerabilities.find_one(
             {"product_key": {"$in": subscription["products"]}, "simulated": False}
         )
@@ -513,7 +513,7 @@ class MongoRepository:
         self.db.vulnerabilities.update_one({"cve_id": cve_id}, {"$set": fields})
 
     def statistics(self, filters):
-        recent = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
+        recent = (datetime.now(UTC) - timedelta(days=30)).date().isoformat()
 
         def grouped(expression):
             return [

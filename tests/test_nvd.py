@@ -1,6 +1,7 @@
+from datetime import UTC, datetime
+
 import httpx
 import pytest
-from datetime import datetime, timezone
 
 
 def test_enrichment_preserves_assessments_and_version_conditions():
@@ -145,7 +146,7 @@ def test_nvd_dates_are_explicitly_utc_before_the_browser_converts_them(published
 def test_enrichment_persists_success_and_marks_missing_for_retry(repository, vulnerability):
     from app.application.enrich import Enrich
 
-    repository.save(vulnerability, datetime.now(timezone.utc), baseline=True)
+    repository.save(vulnerability, datetime.now(UTC), baseline=True)
 
     class Source:
         def fetch(self, ids):
@@ -170,7 +171,7 @@ def test_enrichment_persists_success_and_marks_missing_for_retry(repository, vul
 def test_enrichment_failure_preserves_cisa_and_old_nvd(repository, vulnerability):
     from app.application.enrich import Enrich
 
-    repository.save(vulnerability, datetime.now(timezone.utc), baseline=True)
+    repository.save(vulnerability, datetime.now(UTC), baseline=True)
 
     class Failing:
         def fetch(self, ids):

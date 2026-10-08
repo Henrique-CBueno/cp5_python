@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -16,7 +16,7 @@ def api(repository):
 def test_public_queries_are_paginated_filtered_and_statistics_are_not_page_limited(
     api, repository, vulnerability
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     repository.save(vulnerability, now, baseline=True)
     repository.save(
         vulnerability.model_copy(

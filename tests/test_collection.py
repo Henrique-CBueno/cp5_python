@@ -1,6 +1,7 @@
 import httpx
 import pytest
 from pydantic import ValidationError
+
 from app.domain.vulnerability import Vulnerability
 
 
@@ -126,7 +127,7 @@ def test_collection_use_case_reports_progress_and_recollection(repository, vulne
 
 
 def test_full_crawl_reconciles_repeated_items_using_the_official_export():
-    from app.infrastructure.cisa import CisaCrawler, EXPORT
+    from app.infrastructure.cisa import EXPORT, CisaCrawler
 
     def respond(request):
         if str(request.url) == EXPORT:
@@ -164,7 +165,7 @@ def test_full_crawl_reconciles_repeated_items_using_the_official_export():
 
 
 def test_full_crawl_does_not_claim_completion_if_source_still_has_gaps():
-    from app.infrastructure.cisa import CisaCrawler, EXPORT
+    from app.infrastructure.cisa import EXPORT, CisaCrawler
 
     def respond(request):
         if str(request.url) == EXPORT:

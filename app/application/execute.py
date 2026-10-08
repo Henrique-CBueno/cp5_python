@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.application.collect import Collect
 from app.application.enrich import Enrich
@@ -14,7 +14,7 @@ class Execute:
 
         def progress(value):
             counts.update(value)
-            self.repository.progress_run(job["id"], counts, datetime.now(timezone.utc))
+            self.repository.progress_run(job["id"], counts, datetime.now(UTC))
 
         try:
             Collect(self.source, self.repository).run(
@@ -26,9 +26,7 @@ class Execute:
                 warning = f"Enriquecimento NVD pendente: {type(exc).__name__}"
         except Exception as exc:
             self.repository.finish_run(
-                job["id"], counts, datetime.now(timezone.utc), error=f"{type(exc).__name__}: {exc}"
+                job["id"], counts, datetime.now(UTC), error=f"{type(exc).__name__}: {exc}"
             )
         else:
-            self.repository.finish_run(
-                job["id"], counts, datetime.now(timezone.utc), warning=warning
-            )
+            self.repository.finish_run(job["id"], counts, datetime.now(UTC), warning=warning)

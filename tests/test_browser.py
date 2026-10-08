@@ -35,6 +35,7 @@ def test_account_footer_ends_at_viewport_or_after_long_content(path):
 @pytest.mark.browser
 def test_browser_investigation_subscription_admin_and_email():
     from playwright.sync_api import expect, sync_playwright
+
     from app.settings import Settings
 
     base = os.getenv("BROWSER_BASE_URL", "http://localhost:8000")
@@ -130,6 +131,7 @@ def test_browser_investigation_subscription_admin_and_email():
 @pytest.mark.browser
 def test_login_redirect_stays_on_the_application_origin():
     from playwright.sync_api import expect, sync_playwright
+
     from app.settings import Settings
 
     settings = Settings()
@@ -215,6 +217,7 @@ def test_mobile_details_offer_navigation_before_long_evidence():
 @pytest.mark.browser
 def test_returning_to_account_email_ignores_unused_invalid_destination():
     from playwright.sync_api import expect, sync_playwright
+
     from app.settings import Settings
 
     settings = Settings()
@@ -252,6 +255,7 @@ def test_returning_to_account_email_ignores_unused_invalid_destination():
 @pytest.mark.browser
 def test_expired_private_session_returns_to_login_instead_of_repeating_poll_errors():
     from playwright.sync_api import expect, sync_playwright
+
     from app.settings import Settings
 
     settings = Settings()
@@ -277,6 +281,7 @@ def test_expired_private_session_returns_to_login_instead_of_repeating_poll_erro
 @pytest.mark.browser
 def test_admin_reset_requires_confirmation_and_refreshes_the_view_without_touching_live_data():
     from playwright.sync_api import expect, sync_playwright
+
     from app.settings import Settings
 
     settings = Settings()

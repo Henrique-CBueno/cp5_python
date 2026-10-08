@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,7 +18,7 @@ def test_admin_can_schedule_run_and_demonstrate_alert_without_polluting_catalog(
     email = f"admin-{uuid.uuid4().hex}@example.org"
     identity.bootstrap_admin(email, "AdminPass123!")
     identity.bootstrap_admin(email, "AdminPass123!")
-    repository.save(vulnerability, datetime.now(timezone.utc), baseline=True)
+    repository.save(vulnerability, datetime.now(UTC), baseline=True)
     with TestClient(create_app(repository, identity)) as api:
         api.headers["X-CSRF-Token"] = api.get("/api/session").json()["csrf"]
         assert (
@@ -58,9 +58,9 @@ def test_admin_can_schedule_run_and_demonstrate_alert_without_polluting_catalog(
         assert len(api.get("/api/admin/deliveries").json()) == 2
         assert api.post("/api/admin/reset", json={"confirmation": "wrong"}).status_code == 422
         assert api.get("/api/statistics").json()["total"] == 1
-        job = repository.reserve_run(datetime.now(timezone.utc))
+        job = repository.reserve_run(datetime.now(UTC))
         assert api.post("/api/admin/reset", json={"confirmation": "ZERAR"}).status_code == 409
-        repository.finish_run(job["id"], {}, datetime.now(timezone.utc))
+        repository.finish_run(job["id"], {}, datetime.now(UTC))
         assert (
             api.post(
                 "/api/admin/reset", json={"confirmation": "ZERAR"}, headers={"X-CSRF-Token": ""}
